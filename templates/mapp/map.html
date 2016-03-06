@@ -1,0 +1,300 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Metro Editor</title>
+		<meta name="viewport" content="initial-scale=1.0">
+		<meta charset="utf-8">
+		<script type="text/javascript" src="{% static 'jquery/dist/jquery.min.js' %}"></script>
+		<script type="text/javascript" src="{% static 'mustache.js/mustache.min.js' %}"></script>
+		<script type="text/javascript" src="{% static 'webcomponentsjs/webcomponents-lite.min.js' %}"></script>
+		<script type="text/javascript" src="{% static 'js/polyline/polyline-encoder.js' %}"></script>
+  		<link rel="import" href="{% static 'google-map/google-map.html' %}">
+  		<link rel="import" href="{% static 'google-map/google-map-poly.html' %}">
+  		<link rel="import" href="{% static 'iron-icons/iron-icons.html' %}">
+  		<link rel="import" href="{% static 'iron-icons/communication-icons.html' %}">
+  		<link rel="import" href="{% static 'paper-card/paper-card.html' %}">
+  		<link rel="import" href="{% static 'paper-button/paper-button.html' %}">
+  		<link rel="import" href="{% static 'paper-spinner/paper-spinner.html' %}">
+  		<link rel="import" href="{% static 'paper-input/paper-input.html' %}">
+  		<link rel="import" href="{% static 'iron-icon/iron-icon.html' %}">
+
+		<style>
+			html, body {
+				height: 100%;
+				margin: 0;
+				padding: 0;
+			}
+			google-map {
+				height: 100%;
+			}
+			#controls {
+				display: none;
+				position: absolute;
+				top: 50%;
+				left: 50%;
+    			-webkit-transform: translate(-50%, -50%);
+				-moz-transform: translate(-50%, -50%);
+				-ms-transform: translate(-50%, -50%);
+				-o-transform: translate(-50%, -50%);
+				transform: translate(-50%, -50%);
+				width: 500px;
+			}
+			.control{
+				width: 500px;
+			}
+			@media screen and (max-width:500px) {
+				#controls{
+					width: 100%;
+				}
+				.control{
+					width: 100%;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<google-map latitude="19.432630" longitude="-99.133184" zoom="13" click-events></google-map>
+		<div id="controls">
+			<paper-card id="searchbar" heading="" class="control">
+				<div class="card-content">
+					<paper-input id="originInput" label="Label"no-label-float>
+						<iron-icon icon="communication:location-on" prefix></iron-icon>
+					</paper-input>
+					<paper-input id="destInput" label="Label"no-label-float>
+						<iron-icon icon="communication:location-on" prefix></iron-icon>
+					</paper-input>
+				</card-content>
+			</paper-card>
+		</div>
+		<script>
+            /* global google */
+            /* global Polymer */
+            /* global Mustache */
+			var metro = metro || {};
+			metro.MAP_STYLES_LUNAR_LANDSCAPE = [{"stylers":[{"hue":"#ff1a00"},{"invert_lightness":true},{"saturation":-100},{"lightness":33},{"gamma":0.5}]},{"featureType":"water","elementType":"geometry","stylers":[{"color":"#2D333C"}]}];
+			metro.MAP_STYLE_NO_LABELS = [{"featureType":"all","elementType":"labels","stylers":[{"visibility":"off"}]}];
+			metro.MAP_STYLE_NO_POI = [{"featureType": "poi","stylers": [{ "visibility": "off" }]}];
+			metro.MAP_STYLE_NO_ARTERIAL = [{"featureType":"road.arterial","elementType":"labels.icon","stylers":[{"visibility":"off"}]}];
+			metro.LANGUAGE = 'es';
+			metro.currentLocation = null;
+			metro.currentAddress;
+
+			document.querySelector('google-map').addEventListener('api-load', function(e) {
+				metro.map = this;
+				this.map.setOptions({styles: metro.MAP_STYLES_LUNAR_LANDSCAPE.concat(metro.MAP_STYLE_NO_LABELS)});
+				this.map.setOptions({mapTypeControl:false, backgroundColor: '#000'});
+				this.panTo = metro.ui.panTo;
+				this.singleInfoWindow = true;
+
+				this.addEventListener('google-map-click', function(e) {
+					//var infoWindowContent =
+                    var marker = metro.ui.setMarker(e.detail.latLng, null, "<h1>OK!</h1>");
+                    marker.draggable = true;
+					this.panTo(e.detail.latLng);
+                });
+
+                this.map.addListener('zoom_changed', function() {
+					if (this.getZoom()>=16){
+						this.setOptions({styles: metro.MAP_STYLES_LUNAR_LANDSCAPE.concat(metro.MAP_STYLE_NO_POI).concat(metro.MAP_STYLE_NO_ARTERIAL)});
+					}else{
+						this.setOptions({styles: metro.MAP_STYLES_LUNAR_LANDSCAPE.concat(metro.MAP_STYLE_NO_LABELS)});
+					}
+				});
+				$("#map").css('background-color','#262626');
+			});
+
+			window.onload = function(){
+				metro.ui.addControl();
+				metro.utils.requestGeolocation();
+			}
+
+			metro.ui = {} || metro.ui;
+
+			metro.ui.setMarker = function(position, image, info){
+                var marker = document.createElement('google-map-marker');
+                marker.latitude = position.lat();
+                marker.longitude = position.lng();
+                console.log('google.maps.LatLng(',marker.latitude, ", ",marker.longitude, '),');
+                marker.icon = image;
+                marker.clickEvents = true;
+                Polymer.dom(metro.map).appendChild(marker);
+                if (info){
+					var infoWindow = metro.ui.setInfoWindow(marker, info)
+					marker.info = infoWindow;
+                }
+                return marker;
+            }
+
+            metro.ui.panTo = function(latLng){
+				metro.map.latitude = latLng.lat();
+                metro.map.longitude = latLng.lng();
+			}
+
+            metro.ui.setInfoWindow = function(marker, info){
+                var infoWindow = new google.maps.InfoWindow();
+                infoWindow.setContent(info);
+                marker.addEventListener('google-map-marker-click', function() {
+                    infoWindow.open(metro.map.map, this.marker);
+                });
+                return infoWindow;
+            }
+
+            metro.ui.drawPath = function(latLngArray, options){
+            	/* options = {strokeWeight:integer(0,100)*, strokeColor:Color*, fillColor:Color*, fillOpacity:float(0,1.0)*, isClosed(boolean)*, icons:google.maps.IconSequence[]*} */
+            	var googleMapPoly = document.createElement('google-map-poly');
+            	if (options.isClosed){
+            		googleMapPoly.setAttribute('closed', '');
+            		if(options.fillOpacity){
+            			googleMapPoly.setAttribute('fill-opacity',options.fillOpacity);
+            		}
+            		if(options.fillColor){
+            			googleMapPoly.setAttribute('fill-color', options.fillColor);
+            		}
+            	}
+            	if (options.strokeWeight){
+            		googleMapPoly.setAttribute('stroke-weight', options.strokeWeight);
+            	}
+            	if (options.strokeColor){
+            		googleMapPoly.setAttribute('stroke-color', options.strokeColor);
+            	}
+				if (options.icons){
+					googleMapPoly.icons = options.icons;
+				}
+            	for (var i in latLngArray){
+            		var googleMapPoint = document.createElement('google-map-point');
+					googleMapPoint.setAttribute('latitude', latLngArray[i].lat());
+					googleMapPoint.setAttribute('longitude', latLngArray[i].lng());
+					Polymer.dom(googleMapPoly).appendChild(googleMapPoint);
+            	}
+            	Polymer.dom(metro.map).appendChild(googleMapPoly);
+            }
+
+            metro.ui.addControl = function(){
+            	var getStr = metro.lang.getStr;
+            	$('#controls').show();
+
+            	$('#originInput').attr('label', getStr('ui.origin'));
+            	$('#destInput').attr('label', getStr('ui.destination'));
+            }
+
+            metro.utils = {} || metro.utils;
+
+            metro.utils.SECONDS_FACTOR = 1000;
+            metro.utils.MINUTES_FACTOR = 60 * metro.utils.SECONDS_FACTOR;
+
+            metro.utils.requestGeolocation = function() {
+				var geoOptions = {
+					enableHighAccuracy: true,
+					timeout: 10 * metro.utils.SECONDS_FACTOR,
+					maximumAge: 15 * metro.utils.MINUTES_FACTOR,
+				}
+				var geoError = function(error) {
+					var getStr = metro.lang.getStr;
+					var errorMessage = getStr("error.geo" + error.code);
+					alert(errorMessage);
+					console.log(error);
+				};
+				$(function () {
+				    $.when(metro.utils.getPosition(geoOptions))
+				     .pipe(metro.utils.getAddress, geoError)
+				     .then(metro.utils.saveAddress);
+				});
+			};
+
+			metro.utils.getPosition = function (options) {
+				var deferred = $.Deferred();
+
+				navigator.geolocation.getCurrentPosition(
+				    deferred.resolve,
+				    deferred.reject,
+				    options);
+
+				return deferred.promise();
+			};
+
+			metro.utils.getAddress = function (position) {
+			    var deferred = $.Deferred();
+			    var latlng = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
+			    var geoCoder = new google.maps.Geocoder();
+			    geoCoder.geocode({ location: latlng }, deferred.resolve);
+
+			    return deferred.promise();
+			};
+
+			metro.utils.saveAddress = function (results, status) {
+		        metro.currentAddress = results[0].formatted_address;
+		    };
+
+		    metro.lang = {
+		    	error: {
+					geo0: {
+						"es": "Ha ocurrido un error. Error desconocido (código 0).",
+						"en": "Error occurred. Unknown error (code 0).",
+					},
+					geo1: {
+						"es": "Ha ocurrido un error. Permiso denegado (código 1).",
+						"en": "Error occurred. Permission denied (code 1).",
+					},
+					geo2:{
+						"es": "Ha ocurrido un error. Posición no disponible (código 2).",
+						"en": "Error occurred. Position unavailable (code 2).",
+					},
+					geo3:{
+						"es": "Ha ocurrido un error. Tiempo de espera agotado (code 3).",
+						"en": "Error occurred. Timed out (code 3).",
+					},
+				},
+				alert:{},
+				ui:{
+					loading: {
+						"es": "Cargando...",
+						"en": "Loading..."
+					},
+					origin: {
+						"es": "Origen",
+						"en": "Origin"
+					},
+					destination: {
+						"es": "Destino",
+						"en": "Destination"
+					}
+				}
+		    } || metro.lang;
+
+		    metro.lang.default = {
+		    	notFound: "<STRING_NOT_FOUND>",
+		    	notTranslated: "<STRING_TRANSLATION_NOT_FOUND>"
+		    }
+
+		    metro.lang.getStr = function(stringId, stringParams){
+				var pathElems = stringId.split('.');
+				var tempStringElement = metro.lang;
+				var finalString;
+				for(var pathIndex in pathElems){
+					if (pathElems[pathIndex] in tempStringElement){
+						tempStringElement = tempStringElement[pathElems[pathIndex]];
+					} else {
+						return metro.lang.default.notFound;
+					}
+				}
+				if (metro.LANGUAGE in tempStringElement){
+					tempStringElement = tempStringElement[metro.LANGUAGE];
+					finalString = Mustache.render(tempStringElement, stringParams);
+				}else{
+					return metro.lang.default.notTranslated;
+				}
+				return finalString;
+		    }
+
+            metro.dev = {};
+
+            metro.dev.debug =  true;
+            metro.dev.x = function(){
+            	if (metro.dev.debug){
+            		console.log.apply(console, arguments);
+            	}
+            }
+		</script>
+	</body>
+</html>

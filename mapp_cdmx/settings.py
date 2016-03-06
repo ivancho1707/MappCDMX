@@ -38,6 +38,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'djangobower',
+    'mapp',
+    'api',
 ]
 
 MIDDLEWARE_CLASSES = [
@@ -56,7 +59,7 @@ ROOT_URLCONF = 'mapp_cdmx.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -120,3 +123,27 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/1.9/howto/static-files/
 
 STATIC_URL = '/static/'
+
+STATICFILES_FINDERS = (
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+    'djangobower.finders.BowerFinder',
+)
+
+STATICFILES_DIRS = (
+    os.path.join(BASE_DIR, "static"),
+)
+
+BOWER_COMPONENTS_ROOT = os.path.join('components')
+
+BOWER_INSTALLED_APPS = (
+    'jquery',
+    'Polymer/polymer',
+    'PolymerElements/paper-elements',
+    'PolymerElements/iron-elements',
+    'PolymerElements/gold-elements',
+    'PolymerElements/platinum-elements',
+    'PolymerElements/neon-elements',
+    'GoogleWebComponents/google-web-components',
+    'mustache'
+)
