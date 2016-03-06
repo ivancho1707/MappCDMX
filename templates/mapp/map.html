@@ -79,6 +79,7 @@
 			mapp.currentLocation = null;
 			mapp.currentAddress;
 			mapp.alerts = [];
+			mapp.activeAlerts = {};
 
 			document.querySelector('google-map').addEventListener('api-load', function(e) {
 				mapp.map = this;
@@ -118,6 +119,7 @@
 							}
 							var alertPos = new google.maps.LatLng(a.location.y, a.location.x);
 							var newAlert = {
+								uuid: a.uuid,
 								location: alertPos,
 								reliability: a.reliability,
 								street: a.street,
@@ -156,6 +158,12 @@
 										default:
 											break;
 									}
+									if (myAlert.uuid in mapp.activeAlerts){
+										mapp.activeAlerts[myAlert.uuid].routes.push(r.longName);
+									} else {
+										mapp.activeAlerts[myAlert.uuid] = myAlert;
+										mapp.activeAlerts[myAlert.uuid].routes = [r.longName];
+									}
 									break;
 								}
 								r.info = mapp.ui.setInfoWindow(myPoly, "Hola");
@@ -166,10 +174,27 @@
 								"strokeColor": myColor,
 							};
 							r.path = mapp.ui.drawPath(latLngArray, options);
+							
+							$.each( mapp.activeAlerts, function( uuid, obj ) {
+								mapp.activeAlerts[uuid].marker = mapp.ui.setMarker(myAlert.location, null, "<h1>OK!</h1>");
+							});	
 						}
 						mapp.routes = response.routes;
 						mapp.ui.panTo(new google.maps.LatLng(lat, lon));
 					});
+					function doStuff(index) {
+						var indexes = Object.keys(mapp.activeAlerts);
+						if (index>indexes.length){
+							return;
+						}
+						var uuid = indexes[index];
+						var point = mapp.activeAlerts[uuid].location;
+						mapp.ui.panTo(point);
+						index++;
+						
+						setInterval(function(){doStuff(index)}, 10 * 1000);
+					}
+					setInterval(function(){doStuff(0)}, 10 * 1000);
 				//mapp.utils.requestGeolocation();
 			}
 
@@ -191,6 +216,7 @@
             }
 
             mapp.ui.panTo = function(latLng){
+            	mapp.map.zoom = 16;
 				mapp.map.latitude = latLng.lat();
                 mapp.map.longitude = latLng.lng();
 			}
