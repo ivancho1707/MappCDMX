@@ -79,7 +79,9 @@ def alerts_and_routes(request):
     for route in route_array:
         trip_id = route['id'] + "T0"
         base_url = "http://ec2-54-152-18-59.compute-1.amazonaws.com:8000/otp/routers/default/index/trips/%s/geometry" % trip_id
-        route_geometry_array.append(requests.get(base_url).json())
+        route_trip = requests.get(base_url).json()
+        route_trip.update(route);
+        route_geometry_array.append(route_trip)
     
     response = {
         "alerts": alert_array,
