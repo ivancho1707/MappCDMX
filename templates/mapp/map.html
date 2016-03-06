@@ -203,6 +203,15 @@
             mapp.api.getRouteGeometry = function(routeId){
             	return $.get('/api/routes/'+routeId+'T0/geometry');
             }
+            
+            mapp.api.getAlertsAndRoutes = function(lat, lng, radius){
+            	var data = {
+            		lat: lat,
+            		lon: lng,
+            		radius: radius
+            	}
+            	return $.get('api/alertRoutes/');
+            }
 
             mapp.utils = {} || mapp.utils;
 

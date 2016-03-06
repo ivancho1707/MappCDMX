@@ -6,4 +6,5 @@ urlpatterns = patterns('api.views',
     url(r'^stops/?$', 'stops'),
     url(r'^routes/?$', 'routes'),
     url(r'^routes/(?P<tripId>.*)/geometry/?$', 'geometry'),
+    url(r'^alertRoutes/?$', 'alerts_and_routes'),
 )
