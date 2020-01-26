@@ -61,7 +61,7 @@ paramiko==1.10.1
 pbr==0.7.0
 pexpect==3.1
 prettytable==0.7.2
-pyOpenSSL==0.13
+pyOpenSSL==17.5.0
 pyasn1==0.1.7
 pycadf==0.4.1
 pycrypto==2.6.1
